@@ -9,13 +9,19 @@
 #### (一) 支持workers、pages、snippets部署，vless+ws+tls代理节点
 #### (二) 极大的丰富了反代功能的使用
 v2rayN客户端的单节点路径设置代理ip，通过代理客户端路径传递<br>
-1. socks5或者http代理所有网站(即：全局代理),格式：s5all=xxx或者httpall=xxx,二者任选其一
-2. socks5代理cf相关的网站，非cf相关的网站走直连,格式：socks5=xxx或者socks5://xxx
-3. http代理cf相关的网站，非cf相关的网站走直连,格式：http=xxx或者http://xxx
-4. proxyip代理cf相关的网站，非cf相关的网站走直连,格式：pyip=xxx或者proxyip=xxx
-5. nat64代理cf相关的网站，非cf相关的网站走直连,格式：nat64pf=[2602:fc59:b0:64::]
-6. 如果path路径不设置留空，cf相关的网站无法访问<br>
-以上六种任选其一即可
+支持IPV4、IPV6、域名三种方式（端口为443时，可不写:端口）<br>
+| 代理类型 | IPv4形式| IPv6形式| 域名形式|
+| :--- | :--- | :--- | :--- |
+| 全局代理 |s5all=IPV4地址:端口|s5all=[IPV6地址]:端口 |s5all=域名:端口|
+| 全局代理 |httpall=IPV4地址:端口|httpall=[IPV6地址]:端口|httpall=域名:端口|
+| 代理cf相关网站 |http=IPV4地址:端口|http=[IPV6地址]:端口|http=域名:端口|
+| 代理cf相关网站 |http://IPV4地址:端口|http://[IPV6地址]:端口|http://域名:端口|
+| 代理cf相关网站 |socks5=IPV4地址:端口|socks5=[IPV6地址]:端口|socks5=域名:端口|
+| 代理cf相关网站 |socks5://IPV4地址:端口|socks5://[IPV6地址]:端口|socks5://域名:端口|
+| 代理cf相关网站 |pyip=IPV4地址:端口|pyip=[IPV6地址]:端口|pyip=域名:端口|
+| 代理cf相关网站 |proxyip=IPV4地址:端口|proxyip=[IPV6地址]:端口|proxyip=域名:端口|
+| 代理cf相关网站 | |nat64pf=[2602:fc59:b0:64::]| |
+以上任选其一
 #### 注意
 1. workers、pages、snippets都可以部署，纯手搓443系6个端口节点vless+ws+tls
 2. snippets部署的，nat64及william的proxyip域名"不支持"
