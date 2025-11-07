@@ -12,14 +12,14 @@ v2rayN客户端的单节点路径设置代理ip，通过代理客户端路径传
 支持IPV4、IPV6、域名三种方式（**端口为443时，可不写:port**）,以下任选其一<br>
 | 代理类型 | IPv4形式 | IPv6形式 | 域名形式 |
 |------|------|------|------|
-| socks5全局代理 |s5all=IPV4:port|s5all=[IPV6]:port |s5all=domain:port|
-| http或者https全局代理 |httpall=IPV4:port|httpall=[IPV6]:port|httpall=domain:port|
-| http或者https代理cf网站 |http=IPV4:port|http=[IPV6]:port|http=domain:port|
-| http或者https代理cf网站 |`http://IPV4:port`|http://[IPV6]:port|`http://domain:port`|
-| socks5代理cf网站 |socks5=IPV4:port|socks5=[IPV6]:port|socks5=domain:port|
-| socks5代理cf网站 |socks5://IPV4:port|socks5://[IPV6]:port|socks5://domain:port|
-| proxyip代理cf网站 |pyip=IPV4:port|pyip=[IPV6]:port|pyip=domain:port|
-| proxyip代理cf网站 |proxyip=IPV4:port|proxyip=[IPV6]:port|proxyip=domain:port|
+| socks5全局代理 |s5all=user:password@IPv4:port|s5all=user:password@[IPv6]:port |s5all=user:password@domain:port|
+| http或者https全局代理 |httpall=user:password@IPv4:port|httpall=user:password@[IPv6]:port|httpall=user:password@domain:port|
+| http或者https代理cf网站 |http=user:password@IPv4:port|http=user:password@[IPv6]:port|http=user:password@domain:port|
+| http或者https代理cf网站 |`http://user:password@IPv4:port`|http://user:password@[IPv6]:port|`http://user:password@domain:port`|
+| socks5代理cf网站 |socks5=user:password@IPv4:port|socks5=user:password@[IPv6]:port|socks5=user:password@domain:port|
+| socks5代理cf网站 |socks5://user:password@IPv4:port|socks5://user:password@[IPv6]:port|socks5://user:password@domain:port|
+| proxyip代理cf网站 |pyip=IPv4:port|pyip=[IPv6]:port|pyip=domain:port|
+| proxyip代理cf网站 |proxyip=IPv4:port|proxyip=[IPv6]:port|proxyip=domain:port|
 | nat64代理cf网站 | |nat64pf=[2602:fc59:b0:64::]| |
 #### 注意
 1. workers、pages、snippets都可以部署，纯手搓443系6个端口节点vless+ws+tls
