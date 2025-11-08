@@ -20,9 +20,6 @@ async function getNat64ProxyIP(remoteAddress, nat64Prefix) {
   });
   return `[${nat64Prefix}${hex[0]}${hex[1]}:${hex[2]}${hex[3]}]`;
 }
-// Example usage:
-const res = await getNat64ProxyIP('ip.sb', '[2602:fc59:b0:64::]');
-console.log(res, "类型:", typeof res);
 
 async function parseHostPort(hostSeg) {
   let host, ipv6, port;
@@ -54,8 +51,6 @@ async function parseHostPort(hostSeg) {
   }
   return [host, Number(port)];
 }
-const result = await parseHostPort('kr.william.ccwu.cc');
-console.log(result, "类型:", typeof result);
 
 async function httpConnect(addressRemote, portRemote, httpSpec) {
   const [latter, former] = httpSpec.split(/@?([\d\[\]a-z.:]+(?::\d+)?)$/i);
@@ -136,3 +131,69 @@ async function httpConnect(addressRemote, portRemote, httpSpec) {
   }
   return sock;
 }
+
+async function createSocks5Connection(addrType, destHost, destPort, socks5Spec) {
+  let socks5Conn, convertedHost, writer, reader;
+  try {
+    const [latter, former] = socks5Spec.split(/@?([\d\[\]a-z.:]+(?::\d+)?)$/i);
+    let [username, password] = latter.split(':');
+    if (!password) { password = '' };
+    const [host, port] = await parseHostPort(former);
+    socks5Conn = connect({ hostname: host, port: port });
+    await socks5Conn.opened;
+    writer = socks5Conn.writable.getWriter();
+    reader = socks5Conn.readable.getReader();
+    const encoder = new TextEncoder();
+    const authReq = new Uint8Array([5, 2, 0, 2]);
+    await writer.write(authReq);
+    const authResp = (await reader.read()).value;
+    if (authResp[1] === 0x02) {
+      if (!username || !password) {
+        throw new Error(`missing username or password`);
+      }
+      const userPassPacket = new Uint8Array([1, username.length, ...encoder.encode(username), password.length, ...encoder.encode(password)]);
+      await writer.write(userPassPacket);
+      const userPassResp = (await reader.read()).value;
+      if (userPassResp[0] !== 0x01 || userPassResp[1] !== 0x00) {
+        throw new Error(`username/password error`);
+      }
+    }
+    switch (addrType) {
+      case 1:
+        convertedHost = new Uint8Array([1, ...destHost.split('.').map(Number)]);
+        break;
+      case 2:
+        convertedHost = new Uint8Array([3, destHost.length, ...encoder.encode(destHost)]);
+        break;
+      case 3:
+        convertedHost = new Uint8Array(
+          [4, ...destHost.split(':').flatMap(x => [parseInt(x.slice(0, 2), 16), parseInt(x.slice(2), 16)])]
+        );
+        break;
+      default:
+        console.log(`invalid addressType is ${addrType}`);
+        return;
+    }
+    const buildReq = new Uint8Array([5, 1, 0, ...convertedHost, destPort >> 8, destPort & 0xff]);
+    await writer.write(buildReq);
+    const checkResp = (await reader.read()).value;
+    if (checkResp[0] !== 0x05 || checkResp[1] !== 0x00) {
+      throw new Error(`target connection failed, destHost: ${destHost}, addrType: ${addrType}`);
+    }
+    writer.releaseLock();
+    reader.releaseLock();
+    return socks5Conn;
+  } catch {
+    console.log('SOCKS5 account failed')
+  }
+  writer?.releaseLock();
+  reader?.releaseLock();
+  await socks5Conn?.close();
+  throw new Error(`SOCKS5 account failed`);
+}
+// Example usage:
+const res = await getNat64ProxyIP('ip.sb', '[2602:fc59:b0:64::]');
+console.log(res, "类型:", typeof res);
+
+const result = await parseHostPort('kr.william.ccwu.cc');
+console.log(result, "类型:", typeof result);
