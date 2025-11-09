@@ -22,7 +22,7 @@ export default {
         const upgradeHeader = request.headers.get('Upgrade');
         if (!upgradeHeader || upgradeHeader !== 'websocket') {
             return new Response('Hello World!', { status: 200 });
-        } else {// ws代理
+        } else {
             const { 0: client, 1: server } = new WebSocketPair();
             server.accept();
             handleConnection(server, request);
@@ -30,7 +30,7 @@ export default {
         }
     }
 };
-// 内存池类 - 优化内存分配和回收
+
 class Pool {
     constructor() {
         this.buf = new ArrayBuffer(16384);
@@ -71,12 +71,10 @@ function handleConnection(ws, request) {
     const dataBuffer = [];
     let dataBufferBytes = 0;
     const earlyDataHeader = request.headers.get("sec-websocket-protocol") || "";
-    // 新增: 连接状态和性能监控变量
     let isConnecting = false, isReading = false;
     let score = 1.0, lastCheck = Date.now(), lastRxBytes = 0, successCount = 0, failCount = 0;
     let stats = { total: 0, count: 0, bigChunks: 0, window: 0, timestamp: Date.now() };
     let mode = 'direct', avgSize = 0, throughputs = [];
-    // 动态调整传输模式
     const updateMode = size => {
         stats.total += size;
         stats.count++;
@@ -106,7 +104,7 @@ function handleConnection(ws, request) {
             stats.window += size;
         }
     };
-    async function 处理魏烈思握手(data) {
+    async function handleVossHandshake(data) {
         const bytes = new Uint8Array(data);
         ws.send(new Uint8Array([bytes[0], 0]));
         if (Array.from(bytes.slice(1, 17)).map(n => n.toString(16).padStart(2, '0')).join('').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5') !== FIXED_UUID) throw new Error('Auth failed');
@@ -125,7 +123,7 @@ function handleConnection(ws, request) {
         return { socket: sock, writer: w, reader: sock.readable.getReader(), info: { host, port } };
     }
 
-    async function 处理木马握手(data) {
+    async function handleTouztHandshake(data) {
         const bytes = new Uint8Array(data);
         if (bytes.byteLength < 56 || bytes[56] !== 0x0d || bytes[57] !== 0x0a) throw new Error("invalid data or header format");
         if (new TextDecoder().decode(bytes.slice(0, 56)) !== sha224(FIXED_UUID)) throw new Error("invalid password");
@@ -165,9 +163,9 @@ function handleConnection(ws, request) {
                 } else if (httpMatch) {
                     sock = await httpConnect(host, port, httpMatch);
                 } else if (pyipMatch) {
-                    const [反代IP地址, 反代IP端口] = await 解析地址端口(pyipMatch);
+                    const [proxyIpAddress, proxyIpPort] = await parseHostPort(pyipMatch);
                     try {
-                        sock = connect({ hostname: 反代IP地址, port: 反代IP端口 });
+                        sock = connect({ hostname: proxyIpAddress, port: proxyIpPort });
                     } catch {
                         sock = connect({ hostname: atob('UFJPWFlJUC50cDEuMDkwMjI3Lnh5eg=='), port: 1 });
                     }
@@ -181,7 +179,6 @@ function handleConnection(ws, request) {
         if (isReading) return;
         isReading = true;
         let batch = [], batchSize = 0, batchTimer = null;
-        // 批处理发送函数
         const flush = () => {
             if (!batchSize) return;
             const merged = new Uint8Array(batchSize);
@@ -200,7 +197,6 @@ function handleConnection(ws, request) {
         };
         try {
             while (true) {
-                // 背压控制
                 if (dataBufferBytes > MAX_PENDING) {
                     await new Promise(res => setTimeout(res, 100));
                     continue;
@@ -211,7 +207,6 @@ function handleConnection(ws, request) {
                     lastData = Date.now();
                     stallCount = 0;
                     updateMode(value.length);
-                    // 定期更新网络评分
                     const now = Date.now();
                     if (now - lastCheck > 5000) {
                         const elapsed = now - lastCheck;
@@ -224,7 +219,6 @@ function handleConnection(ws, request) {
                         lastCheck = now;
                         lastRxBytes = bytesReceived;
                     }
-                    // 根据模式选择发送策略
                     if (mode === 'buffered') {
                         if (value.length < 32768) {
                             batch.push(value);
@@ -277,7 +271,6 @@ function handleConnection(ws, request) {
             ws.close(1011, 'Max reconnect.');
             return;
         }
-        // 基于网络质量评分的随机退出机制
         if (score < 0.3 && reconnectCount > 5 && Math.random() > 0.6) {
             cleanup();
             ws.close(1011, 'Poor network.');
@@ -285,7 +278,6 @@ function handleConnection(ws, request) {
         }
         if (isConnecting) return;
         reconnectCount++;
-        // 动态计算重连延迟
         let delay = Math.min(50 * Math.pow(1.5, reconnectCount - 1), 3000);
         delay *= (1.5 - score * 0.5);
         delay += (Math.random() - 0.5) * delay * 0.2;
@@ -293,7 +285,6 @@ function handleConnection(ws, request) {
         console.log(`Reconnecting (attempt ${reconnectCount})...`);
         try {
             cleanupSocket();
-            // 背压控制: 清理过多缓冲数据
             if (dataBufferBytes > MAX_PENDING * 2) {
                 while (dataBufferBytes > MAX_PENDING && dataBuffer.length > 5) {
                     const drop = dataBuffer.shift();
@@ -308,7 +299,6 @@ function handleConnection(ws, request) {
 
             writer = socket.writable.getWriter();
             reader = socket.readable.getReader();
-            // 发送缓冲数据 (限制数量防止阻塞)
             const buffersToSend = dataBuffer.splice(0, 10);
             for (const buf of buffersToSend) {
                 await writer.write(buf);
@@ -381,7 +371,7 @@ function handleConnection(ws, request) {
         throughputs = [];
         pool.reset();
     }
-    // 处理 early data
+
     function processEarlyData(earlyDataHeader) {
         if (!earlyDataHeader) return null;
         try {
@@ -398,7 +388,6 @@ function handleConnection(ws, request) {
         try {
             if (isFirstMsg) {
                 isFirstMsg = false;
-                // 合并 early data 和第一条消息
                 let firstData = evt.data;
                 const earlyData = processEarlyData(earlyDataHeader);
                 if (earlyData) {
@@ -410,11 +399,10 @@ function handleConnection(ws, request) {
                 const bytes = new Uint8Array(firstData);
                 let result;
                 if (bytes.byteLength >= 58 && bytes[56] === 0x0d && bytes[57] === 0x0a) {
-                    result = await 处理木马握手(firstData);
+                    result = await handleTouztHandshake(firstData);
                 } else {
-                    result = await 处理魏烈思握手(firstData);
+                    result = await handleVossHandshake(firstData);
                 }
-                // 如果是 UDP DNS,result 为 null,不需要启动 TCP 相关逻辑
                 if (result) {
                     ({ socket, writer, reader, info } = result);
                     startTimers();
@@ -423,7 +411,6 @@ function handleConnection(ws, request) {
             } else {
                 lastData = Date.now();
                 if (!writer) {
-                    // 使用内存池分配缓冲区
                     const buf = pool.alloc(evt.data.byteLength);
                     buf.set(new Uint8Array(evt.data));
                     dataBuffer.push(buf);
@@ -503,7 +490,7 @@ function sha224(s) {
     return hex;
 }
 
-async function 解析地址端口(hostSeg) {
+async function parseHostPort(hostSeg) {
     let host, ipv6, port;
     if (/\.william/i.test(hostSeg)) {
         const williamResult = await (async function (william) {
@@ -516,7 +503,6 @@ async function 解析地址端口(hostSeg) {
                 let txtData = txtRecords[0];
                 if (txtData.startsWith('"') && txtData.endsWith('"')) txtData = txtData.slice(1, -1);
                 const prefixes = txtData.replace(/\\010/g, ',').replace(/\n/g, ',').split(',').map(s => s.trim()).filter(Boolean);
-                console.log(william, '域名绑定的ProxyIP有:', prefixes);
                 if (prefixes.length === 0) return null;
                 return prefixes[Math.floor(Math.random() * prefixes.length)];
             } catch (error) {
@@ -539,28 +525,23 @@ async function socks5Connect(addressRemote, portRemote, socks5Spec, addressType 
     const [latter, former] = socks5Spec.split(/@?([\d\[\]a-z.:]+(?::\d+)?)$/i);
     let [username, password] = latter.split(':');
     if (!password) { password = '' };
-    const [hostname, port] = await 解析地址端口(former);
+    const [hostname, port] = await parseHostPort(former);
     const socket = connect({ hostname, port });
     const writer = socket.writable.getWriter();
     const reader = socket.readable.getReader();
     const encoder = new TextEncoder();
-    // SOCKS5 握手: VER(5) + NMETHODS(2) + METHODS(0x00,0x02)
     await writer.write(new Uint8Array([5, 2, 0, 2]));
     let res = (await reader.read()).value;
     if (res[0] !== 0x05 || res[1] === 0xff) return;
-    // 如果需要用户名密码认证
     if (res[1] === 0x02) {
         if (!username || !password) return;
         await writer.write(new Uint8Array([1, username.length, ...encoder.encode(username), password.length, ...encoder.encode(password)]));
         res = (await reader.read()).value;
         if (res[0] !== 0x01 || res[1] !== 0x00) return;
     }
-    // 构建目标地址 (ATYP + DST.ADDR)
     const DSTADDR = addressType === 1 ? new Uint8Array([1, ...addressRemote.split('.').map(Number)])
         : addressType === 3 ? new Uint8Array([3, addressRemote.length, ...encoder.encode(addressRemote)])
             : new Uint8Array([4, ...addressRemote.split(':').flatMap(x => [parseInt(x.slice(0, 2), 16), parseInt(x.slice(2), 16)])]);
-
-    // 发送连接请求: VER(5) + CMD(1=CONNECT) + RSV(0) + DSTADDR + DST.PORT
     await writer.write(new Uint8Array([5, 1, 0, ...DSTADDR, portRemote >> 8, portRemote & 0xff]));
     res = (await reader.read()).value;
     if (res[1] !== 0x00) return;
@@ -573,7 +554,7 @@ async function httpConnect(addressRemote, portRemote, httpSpec) {
     const [latter, former] = httpSpec.split(/@?([\d\[\]a-z.:]+(?::\d+)?)$/i);
     let [username, password] = latter.split(':');
     if (!password) { password = '' };
-    const [hostname, port] = await 解析地址端口(former);
+    const [hostname, port] = await parseHostPort(former);
     const sock = await connect({
         hostname: hostname,
         port: port
