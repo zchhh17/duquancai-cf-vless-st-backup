@@ -424,7 +424,6 @@ function handleConnection(ws, request) {
             ws.close(1006, 'Error.');
         }
     });
-
     ws.addEventListener('close', cleanup);
     ws.addEventListener('error', cleanup);
 }
